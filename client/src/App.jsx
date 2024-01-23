@@ -1,35 +1,104 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
+import { Box, Container, Stack, TextField, Typography } from "@mui/material";
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [room, setRoom] = useState("");
+  const [socketId, setSocketId] = useState("");
+  const [roomName, setRoomName] = useState("");
+
+  const socket = useMemo(
+    () =>
+      io("http://localhost:5000", {
+        withCredentials: true,
+      }),
+    []
+  );
+
+  useEffect(() => {
+    socket.on("connect", () => {
+      setSocketId(socket.id);
+      console.log("Connected", socket.id);
+
+      socket.on("receive-message", (data) => {
+        console.log(data);
+        setMessages((messages) => [...messages, data]);
+      });
+
+      socket.on("welcome", (s) => {
+        console.log(s);
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const joinRoomHandler = (e) => {
+    e.preventDefault();
+    socket.emit("join-room", roomName);
+    setRoomName("");
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    socket.emit("message", { message, room });
+    setMessage("");
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <Container maxWidth="sm">
+      {/* <Box sx={{height: 500}}/> */}
+      <Typography varient="h1" component="div" gutterBottom>
+        {`Socket id: ${socketId}`}
+      </Typography>
 
-export default App
+      <form onSubmit={joinRoomHandler}>
+        <h5>Join Room</h5>
+        <TextField
+          value={roomName}
+          onChange={(e) => setRoomName(e.target.value)}
+          id="outlined-basic"
+          label="Room Name"
+          varient="outlined"
+        />
+        <button type="submit" varient="contained" color="primary">
+          Join Room
+        </button>
+      </form>
+
+      <form onSubmit={handleSubmit}>
+        <TextField
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          id="outlined-basic"
+          label="Message"
+          varient="outlined"
+        />
+        <TextField
+          value={room}
+          onChange={(e) => setRoom(e.target.value)}
+          id="outlined-basic"
+          label="Room"
+          varient="outlined"
+        />
+        <button type="submit" varient="contained" color="primary">
+          Send
+        </button>
+      </form>
+
+      <Stack>
+        {messages.map((m, i) => (
+          <Typography key={i} variant="h6" component="div" gutterBottom>
+            {m}
+          </Typography>
+        ))}
+      </Stack>
+    </Container>
+  );
+};
+
+export default App;
